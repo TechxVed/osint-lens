@@ -1,0 +1,10 @@
+typer==0.12.5
+click<8.2   # typer 0.12.5 is incompatible with click>=8.2 (verified: click 8.5.0
+            # caused "Parameter.make_metavar() missing 1 required positional
+            # argument: 'ctx'" when running --help). Pinned after hitting this
+            # for real during testing.
+rich==13.8.1
+requests==2.32.3
+python-dotenv==1.0.1
+jinja2==3.1.4
+pytest==8.3.3

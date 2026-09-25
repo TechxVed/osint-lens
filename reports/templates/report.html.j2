@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OSINT-Lens Report — {{ scan.target }}</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 2rem;
+         background: #0f1117; color: #e6e6e6; }
+  h1, h2 { color: #f5f5f5; }
+  .meta { color: #9aa0a6; margin-bottom: 2rem; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #2a2d35; }
+  th { color: #9aa0a6; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+  .status-success { color: #4caf50; }
+  .status-failed { color: #e05252; }
+  .status-timeout { color: #e0a852; }
+  .status-skipped { color: #9aa0a6; }
+  .alert { background: #1a1c24; border-left: 4px solid #e0a852; padding: 1rem; margin-bottom: 1rem; }
+  .alert h3 { margin: 0 0 0.5rem 0; }
+  .disclaimer { background: #1a1c24; border-left: 4px solid #4a90d9; padding: 1rem; margin-top: 2rem;
+                font-size: 0.9rem; color: #b8bcc4; }
+  code { background: #1a1c24; padding: 0.1rem 0.4rem; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>OSINT-Lens Report</h1>
+<div class="meta">
+  Target: <code>{{ scan.target }}</code><br>
+  Scan started: {{ scan.started_at }}<br>
+  Modules requested: {{ scan.modules_requested }}
+</div>
+
+<h2>Module Execution Status</h2>
+<table>
+  <tr><th>Plugin</th><th>Status</th><th>Duration (s)</th><th>Notes</th></tr>
+  {% for run in plugin_runs %}
+  <tr>
+    <td>{{ run.plugin_name }}</td>
+    <td class="status-{{ run.status }}">{{ run.status }}</td>
+    <td>{{ "%.2f"|format(run.duration_seconds or 0) }}</td>
+    <td>{{ run.error_message or "" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>Correlation Alerts ({{ alerts|length }})</h2>
+{% if alerts|length == 0 %}
+  <p>No correlation rules fired for this scan.</p>
+{% endif %}
+{% for alert in alerts %}
+<div class="alert">
+  <h3>{{ alert.rule_name }}</h3>
+  <p>{{ alert.description }}</p>
+  <p><em>{{ alert.rationale }}</em></p>
+</div>
+{% endfor %}
+
+<h2>Normalized Findings ({{ findings|length }})</h2>
+<table>
+  <tr><th>Source</th><th>Type</th><th>Value</th><th>Confidence</th><th>Timestamp</th></tr>
+  {% for f in findings %}
+  <tr>
+    <td>{{ f.source }}</td>
+    <td>{{ f.data_type }}</td>
+    <td>{{ f.value }}</td>
+    <td>{{ "%.2f"|format(f.confidence) }}</td>
+    <td>{{ f.timestamp }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<div class="disclaimer">
+  <strong>Scope and limitations:</strong> This report contains passive OSINT
+  observations only, gathered from the modules listed above. Findings and
+  alerts describe indicators that may warrant further, manual verification —
+  they are not confirmed vulnerabilities or proof of compromise. Only run
+  this tool against targets you own or are explicitly authorized to assess.
+</div>
+
+</body>
+</html>

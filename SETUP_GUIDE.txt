@@ -1,0 +1,212 @@
+==================================================================
+OSINT-LENS — SETUP AND USAGE GUIDE (plain text)
+==================================================================
+This is a plain-text companion to README.md, meant to be followed
+top to bottom on a fresh Kali Linux (or any Debian-based) machine.
+Every command below was actually run and verified during the build
+of this project (see "WHAT WAS VERIFIED" at the bottom).
+
+------------------------------------------------------------------
+1. REQUIREMENTS
+------------------------------------------------------------------
+- Python 3.11 or newer
+- pip
+- git (only needed if you build the optional Docker/theHarvester image)
+- Docker (OPTIONAL — only needed for the theharvester plugin)
+- A free Shodan API key (OPTIONAL — only needed for the shodan plugin)
+
+Check your Python version first:
+    python3 --version
+
+If it's below 3.11, install a newer Python before continuing
+(on Kali: sudo apt update && sudo apt install python3.11).
+
+------------------------------------------------------------------
+2. UNZIP AND ENTER THE PROJECT
+------------------------------------------------------------------
+    unzip osint-lens.zip
+    cd osint-lens
+
+You should see these top-level items:
+    main.py  requirements.txt  .env.example  .gitignore  README.md
+    core/  plugins/  database/  reports/  cli/  tests/  docker/  data/
+
+------------------------------------------------------------------
+3. CREATE AND ACTIVATE A VIRTUAL ENVIRONMENT
+------------------------------------------------------------------
+    python3 -m venv venv
+    source venv/bin/activate
+
+Your terminal prompt should now start with "(venv)". Every command
+from here on assumes this environment is active. If you close your
+terminal and come back later, just run "source venv/bin/activate"
+again from inside the osint-lens folder before running anything.
+
+------------------------------------------------------------------
+4. INSTALL DEPENDENCIES
+------------------------------------------------------------------
+    pip install --upgrade pip
+    pip install -r requirements.txt
+
+This installs: typer, click (pinned <8.2 — see NOTE below), rich,
+requests, python-dotenv, jinja2, pytest.
+
+NOTE ON THE CLICK VERSION PIN:
+requirements.txt pins "click<8.2" on purpose. typer==0.12.5 crashes
+on "--help" if a newer click (8.2+) gets installed alongside it —
+this was found and fixed during real testing, not a guess. Do not
+remove that pin unless you also upgrade typer and re-test --help.
+
+------------------------------------------------------------------
+5. CONFIGURE ENVIRONMENT VARIABLES (OPTIONAL BUT RECOMMENDED)
+------------------------------------------------------------------
+    cp .env.example .env
+
+Open .env in any text editor and, if you have one, add your Shodan
+API key:
+    SHODAN_API_KEY=your_key_here
+
+Get a free-tier key at: https://account.shodan.io/register
+
+You do NOT need this step to use the mock_example plugin or to run
+the test suite — only the shodan plugin needs it, and it will just
+show as "unavailable" and be skipped cleanly if you leave it blank.
+
+------------------------------------------------------------------
+6. INITIALIZE THE DATABASE (OPTIONAL — HAPPENS AUTOMATICALLY TOO)
+------------------------------------------------------------------
+    python -c "from database.connection import init_db; init_db()"
+
+This creates data/osint_lens.db with the required tables. If you
+skip this step, it happens automatically the first time you run
+"scan", "history", or "report".
+
+------------------------------------------------------------------
+7. RUN THE TEST SUITE
+------------------------------------------------------------------
+    python -m pytest tests/ -v
+
+Expected result: 51 passed. If anything fails, re-check step 4 —
+almost all failures at this stage trace back to a dependency version
+mismatch, not the project's own logic (see the troubleshooting table
+in README.md).
+
+------------------------------------------------------------------
+8. RUN YOUR FIRST SCAN
+------------------------------------------------------------------
+    python main.py scan --target example.com --modules mock_example --report
+
+You will be asked to confirm authorization interactively — type "y"
+and press Enter. This step exists on purpose; see README.md's
+"Security and ethical requirements" discussion.
+
+You should see:
+  - a "Module Execution" table (mock_example: success)
+  - a "Findings" table (4 rows: 2 subdomains, 1 email, 1 open port)
+  - a correlation alert panel ("exposed_admin_port_with_emails")
+  - "Scan saved (scan_id=1)."
+  - "Report written to data/report_scan_1.html"
+
+------------------------------------------------------------------
+9. VIEW THE OTHER COMMANDS
+------------------------------------------------------------------
+    python main.py --help              (list all commands)
+    python main.py modules              (list plugins + availability)
+    python main.py history               (list past scans)
+    python main.py report 1               (regenerate report for scan #1)
+    python main.py version
+
+------------------------------------------------------------------
+10. VIEW THE HTML REPORT
+------------------------------------------------------------------
+    xdg-open data/report_scan_1.html
+
+(or just double-click the file / open it manually in any browser)
+
+------------------------------------------------------------------
+11. OPTIONAL — SET UP THE SHODAN PLUGIN FOR REAL
+------------------------------------------------------------------
+    1. Get a free key: https://account.shodan.io/register
+    2. Put it in .env as SHODAN_API_KEY=...
+    3. Run: python main.py modules
+       -> "shodan" should now show as "available"
+    4. Run: python main.py scan --target 8.8.8.8 --modules shodan
+
+------------------------------------------------------------------
+12. OPTIONAL — SET UP THE THEHARVESTER PLUGIN (DOCKER) FOR REAL
+------------------------------------------------------------------
+This plugin's live container run was NOT tested during the build of
+this project (the build sandbox had no Docker daemon). Do this on
+your own machine before relying on it in a demo:
+
+    1. Install Docker:
+        sudo apt install -y docker.io
+        sudo systemctl enable --now docker
+        sudo usermod -aG docker $USER
+       (then log out and back in for the group change to apply)
+
+    2. Build the image from the project root:
+        docker build -t osint-lens-theharvester -f docker/theharvester.Dockerfile .
+
+    3. Confirm it's picked up:
+        python main.py modules
+       -> "theharvester" should now show as "available"
+
+    4. Run it:
+        python main.py scan --target example.com --modules theharvester
+
+    If step 4 fails with a parsing error, theHarvester's JSON output
+    format may have changed since this was written — read the error
+    message (it will say exactly what went wrong), then check
+    plugins/docker_plugins/theharvester_plugin.py's _parse_output()
+    function against theHarvester's actual current output.
+
+------------------------------------------------------------------
+13. TROUBLESHOOTING QUICK REFERENCE
+------------------------------------------------------------------
+Problem: ModuleNotFoundError on any import
+Fix: You're not in the venv, or not in the project root.
+     Run: source venv/bin/activate   (from inside osint-lens/)
+
+Problem: --help crashes with "make_metavar() missing 1 required
+         positional argument: 'ctx'"
+Fix: pip install "click<8.2"
+
+Problem: "shodan" always shows unavailable
+Fix: Check .env exists (not just .env.example) and SHODAN_API_KEY
+     has a real value, no quotes, no spaces.
+
+Problem: "docker: permission denied"
+Fix: Your user isn't in the docker group yet, or you haven't logged
+     out/in since being added. Check with: groups
+
+Problem: SQLite "database is locked"
+Fix: Don't run two scans at the same time against the same
+     data/osint_lens.db file.
+
+------------------------------------------------------------------
+14. WHAT WAS ACTUALLY VERIFIED BEFORE THIS ZIP WAS HANDED TO YOU
+------------------------------------------------------------------
+- Fresh venv + pip install -r requirements.txt: works, no errors
+- All .py files compile, all imports resolve
+- 51/51 pytest tests pass
+- Full CLI flow run live: scan -> history -> report, all working
+- Error paths tested live: invalid target, unknown plugin name,
+  declined authorization, request for a nonexistent scan report —
+  all exit cleanly with code 1 and a clear message, no crashes
+- Multi-plugin scan with shodan/theharvester unavailable (no key,
+  no Docker) — both skip cleanly, scan still completes
+- mock_example plugin: fully tested, real output verified
+- shodan plugin: code reviewed + unit-tested with mocked HTTP
+  responses (200/401/404/429/malformed JSON) — NOT tested against
+  the real live Shodan API in the build environment
+- theharvester plugin: code reviewed + unit-tested with mocked
+  subprocess/Docker calls — NOT tested against a real Docker
+  container in the build environment (no Docker daemon available
+  there)
+
+Bottom line: the pipeline, mock plugin, database, report, and CLI
+are fully verified. The two real external integrations are built
+and unit-tested but need YOU to do a live check (steps 11 and 12
+above) on your own machine before your demo.
+==================================================================
