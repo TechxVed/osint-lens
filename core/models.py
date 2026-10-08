@@ -83,7 +83,9 @@ class Finding:
 
     def __post_init__(self):
         if not (0.0 <= self.confidence <= 1.0):
-            raise ValueError(f"confidence must be between 0.0 and 1.0, got {self.confidence}")
+            raise ValueError(
+                f"confidence must be between 0.0 and 1.0, got {self.confidence}"
+            )
         if not self.value or not self.value.strip():
             raise ValueError("Finding.value cannot be empty")
 
@@ -97,10 +99,12 @@ class Alert:
     """
     rule_name: str
     description: str
-    rationale: str                  # why this combination matters, in plain language
-    evidence: list                     # list of Finding objects that triggered this
+    rationale: str
+    evidence: list
     target: str
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 @dataclass
